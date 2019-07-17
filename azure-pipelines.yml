@@ -53,9 +53,10 @@ jobs:
     condition: variables.isMac
 
   - bash: |
-      choco install -y msys2
-      /C/tools/msys64 -mingw64 pacman -Syu
-      /C/tools/msys64 -mingw64 pacman -Su git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python
+      # pacman -Syu
+      # pacman -Su git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python
+      export CC=gcc
+      export CPP=g++
     displayName: 'Installing Prerequisites > Windows'
     condition: variables.isWindows
 
