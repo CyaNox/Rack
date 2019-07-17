@@ -13,7 +13,11 @@ jobs:
       linux:
         imageName: 'ubuntu-16.04'
         isLinux: true
-        artifactMatrixID: 'NOXYS_RACK_ZIP_LINUX'  
+        artifactMatrixID: 'Noxys_Rack_Linux'
+      mac:
+        imageName: 'macOS-10.14'
+        isMac: true
+        artifactMatrixID: 'Noxys_Rack_Mac'
 
   pool:
     vmImage: $(imageName)
@@ -24,8 +28,10 @@ jobs:
 
   - bash: |
       echo `uname -a`
-      echo `uname -s`
-    displayName: 'System info'
+      echo `cat /proc/cpuinfo`
+      echo `free -tm`
+    displayName: 'System Info'
+    condition: variables.isLinux
 
   - bash: |
       sudo apt install git gdb curl cmake libx11-dev libglu1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev zlib1g-dev libasound2-dev libgtk2.0-dev libjack-jackd2-dev jq
@@ -33,11 +39,23 @@ jobs:
     condition: variables.isLinux
 
   - bash: |
-      export SYSTEM=`uname -s`
-      make dep
-    displayName: 'Building Dependencies'
+      brew install git wget cmake autoconf automake libtool jq python
+    displayName: 'Installing prerequisites'
+    condition: variables.isMac
 
   - bash: |
+      export SYSTEM=`uname -s` # Tell openssl what system we are building on
+      make dep
+    displayName: 'Building Dependencies'
+    condition: variables.isLinux
+
+  - bash: |
+      make dep
+    displayName: 'Building Dependencies'
+    condition: not(variables.isLinux)
+
+  - bash: |
+      sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
       make
     displayName: 'Building Rack'
 
@@ -52,7 +70,9 @@ jobs:
     displayName: 'Building Fundamental Plugins'
 
   - bash: |
+      sed -i 's/codesign/#codesign/' Makefile # We don't have a certificate so just not sign it?
       make dist
+      rm -rf Rack Rack-SDK Rack.app # We only care about the packed files
     displayName: 'Creating Distribution Package'
 
   - task: PublishPipelineArtifact@0
