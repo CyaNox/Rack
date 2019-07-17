@@ -61,7 +61,7 @@ jobs:
   - bash: |
       # pacman -Syu
       # pacman -Su git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python
-      choco install wget make tar unzip zip jq -y
+      choco install wget make unzip zip -y
     displayName: 'Installing Prerequisites > Windows'
     condition: variables.isWindows
     env: 
@@ -77,6 +77,7 @@ jobs:
       export SYSTEM=`uname -s` # Tell openssl what system we are building on
       export CC=gcc
       export CPP=g++
+      export CXX=g++
       make dep
     displayName: 'Building Dependencies'
     condition: variables.isWindows
