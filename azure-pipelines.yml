@@ -18,10 +18,10 @@ jobs:
         imageName: 'macOS-10.14'
         isMac: true
         artifactMatrixID: 'Noxys_Rack_Mac'
-#      windows:
-#        imageName: 'windows-2019'
-#        isWindows: true
-#        artifactMatrixID: 'Noxys_Rack_Windows'
+      windows:
+        imageName: 'windows-2019'
+        isWindows: true
+        artifactMatrixID: 'Noxys_Rack_Windows'
 
   pool:
     vmImage: $(imageName)
