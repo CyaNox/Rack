@@ -34,13 +34,19 @@ jobs:
       uname -a
       cat /proc/cpuinfo
       free -tm
+      env
+      $CC -dumpmachine
     displayName: 'System Info'
     condition: variables.isLinux
 
   - bash: |
       uname -a
+      env
+      $CC -dumpmachine
     displayName: 'System Info'
     condition: not(variables.isLinux)
+    env: 
+      MSYSTEM: MINGW64
 
   - bash: |
       sudo apt install git gdb curl cmake libx11-dev libglu1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev zlib1g-dev libasound2-dev libgtk2.0-dev libjack-jackd2-dev jq
@@ -59,16 +65,22 @@ jobs:
       export CPP=g++
     displayName: 'Installing Prerequisites > Windows'
     condition: variables.isWindows
+    env: 
+      MSYSTEM: MINGW64
 
   - bash: |
       export SYSTEM=`uname -s` # Tell openssl what system we are building on
       make dep
     displayName: 'Building Dependencies'
+    env: 
+      MSYSTEM: MINGW64
 
   - bash: |
       sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
       make
     displayName: 'Building Rack'
+    env: 
+      MSYSTEM: MINGW64
 
   - bash: |
       cd plugins
@@ -79,12 +91,16 @@ jobs:
       make
       cd ../..
     displayName: 'Building Fundamental Plugins'
+    env: 
+      MSYSTEM: MINGW64
 
   - bash: |
       sed -i "s/codesign/#codesign/" Makefile # We don't have a certificate so just not sign it?
       make dist
       rm -rf dist/Rack dist/Rack-SDK dist/Rack.app # We only care about the packed files
     displayName: 'Creating Distribution Package'
+    env: 
+      MSYSTEM: MINGW64
 
   - task: PublishPipelineArtifact@0
     inputs:
