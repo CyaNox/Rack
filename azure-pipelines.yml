@@ -60,9 +60,7 @@ jobs:
 
   - bash: |
       # pacman -Syu
-      # pacman -Su git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python
-      export CC=gcc
-      export CPP=g++
+      pacman -Su git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python
     displayName: 'Installing Prerequisites > Windows'
     condition: variables.isWindows
     env: 
@@ -70,12 +68,15 @@ jobs:
 
   - bash: |
       export SYSTEM=`uname -s` # Tell openssl what system we are building on
+      export CC=gcc
+      export CPP=g++
       make dep
     displayName: 'Building Dependencies'
     env: 
       MSYSTEM: MINGW64
 
   - bash: |
+      env
       sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
       make
     displayName: 'Building Rack'
