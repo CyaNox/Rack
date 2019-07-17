@@ -23,7 +23,8 @@ jobs:
     submodules: recursive
 
   - bash: |
-      uname -a
+      echo `uname -a`
+      echo `uname -s`
     displayName: 'System info'
 
   - bash: |
@@ -31,12 +32,8 @@ jobs:
     displayName: 'Installing prerequisites'
     condition: variables.isLinux
 
-  - script: |
-      SYSTEM=`uname -s` ./config
-    displayName: 'Fix openssl build'
-    condition: variables.isLinux
-
   - bash: |
+      export SYSTEM=`uname -s`
       make dep
     displayName: 'Building Dependencies'
 
