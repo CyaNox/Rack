@@ -104,7 +104,8 @@ jobs:
       MSYSTEM: MINGW64
 
   - bash: |
-      sed  -i'' -e "s/codesign/#codesign/" Makefile # We don't have a certificate so just not sign it?
+      mv Makefile Makefile.pre
+      sed -e 's/codesign/#codesign/' Makefile.pre > Makefile
       make dist
       rm -rf dist/Rack dist/Rack-SDK dist/Rack.app # We only care about the packed files
     displayName: 'Creating Distribution Package'
