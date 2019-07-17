@@ -45,8 +45,6 @@ jobs:
       gcc -dumpmachine
     displayName: 'System Info'
     condition: not(variables.isLinux)
-    env: 
-      MSYSTEM: MINGW64
 
   - bash: |
       sudo apt install git gdb curl cmake libx11-dev libglu1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev zlib1g-dev libasound2-dev libgtk2.0-dev libjack-jackd2-dev jq
@@ -58,14 +56,12 @@ jobs:
     displayName: 'Installing Prerequisites > Mac'
     condition: variables.isMac
 
-  - bash: |
-      # pacman -Syu
-      # pacman -Su git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python
-      choco install wget make unzip zip -y
+  - script: |
+      choco install wget make unzip zip msys2-installer -y
+      c:\tools\msys64\msys2_shell.cmd -mingw64 pacman -Syu
+      c:\tools\msys64\msys2_shell.cmd -mingw64 pacman -Su git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python
     displayName: 'Installing Prerequisites > Windows'
     condition: variables.isWindows
-    env: 
-      MSYSTEM: MINGW64
 
   - bash: |
       export SYSTEM=`uname -s` # Tell openssl what system we are building on
@@ -73,24 +69,37 @@ jobs:
     displayName: 'Building Dependencies'
     condition: not(variables.isWindows)
 
-  - bash: |
-      export SYSTEM=`uname -s` # Tell openssl what system we are building on
-      export CC=gcc
-      export CPP=g++
-      export CXX=g++
-      make dep
+  - script: |
+      c:\tools\msys64\msys2_shell.cmd -mingw64 make dep
     displayName: 'Building Dependencies'
     condition: variables.isWindows
-    env: 
-      MSYSTEM: MINGW64
 
   - bash: |
-      env
+      mv Makefile Makefile.pre
+      sed -e 's/\.dev\./\.noxys\./g' Makefile.pre > Makefile # Make it clear this is not an official release
+    displayName: 'Pre Building Rack'
+    condition: variables.isMac
+
+  - bash: |
       sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
+    displayName: 'Pre Building Rack'
+    condition: not(variables.isMac)
+
+  - script: |
+      c:\tools\msys64\msys2_shell.cmd -mingw64 make
+    displayName: 'Building Rack'
+    condition: not(variables.isWindows)
+
+  - bash: |
       make
     displayName: 'Building Rack'
-    env: 
-      MSYSTEM: MINGW64
+    condition: variables.isLinux
+
+  - script: |
+      sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
+      c:\tools\msys64\msys2_shell.cmd -mingw64 make
+    displayName: 'Building Rack'
+    condition: variables.isWindows
 
   - bash: |
       cd plugins
@@ -101,17 +110,13 @@ jobs:
       make
       cd ../..
     displayName: 'Building Fundamental Plugins'
-    env: 
-      MSYSTEM: MINGW64
 
   - bash: |
       mv Makefile Makefile.pre
-      sed -e 's/codesign/#codesign/' Makefile.pre > Makefile
+      sed -e 's/codesign/#codesign/g' Makefile.pre > Makefile
       make dist
       rm -rf dist/Rack dist/Rack-SDK dist/Rack.app # We only care about the packed files
     displayName: 'Creating Distribution Package'
-    env: 
-      MSYSTEM: MINGW64
 
   - task: PublishPipelineArtifact@0
     inputs:
