@@ -10,10 +10,10 @@ jobs:
 - job: Build
   strategy:
     matrix:
-      windows10:
-        imageName: 'vs2017-win2016'
-        isWindows: true
-        artifactMatrixID: 'NOXYS_RACK_ZIP_WINDOWS'  
+      linux:
+        imageName: 'ubuntu-16.04'
+        isLinux: true
+        artifactMatrixID: 'NOXYS_RACK_ZIP_LINUX'  
 
   pool:
     vmImage: $(imageName)
@@ -21,6 +21,11 @@ jobs:
   steps:
   - checkout: self
     submodules: recursive
+
+  - bash: |
+      sudo apt install git gdb curl cmake libx11-dev libglu1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev zlib1g-dev libasound2-dev libgtk2.0-dev libjack-jackd2-dev jq
+    displayName: 'Installing prerequisites'
+    condition: variables.isLinux
 
   - bash: |
       make dep
