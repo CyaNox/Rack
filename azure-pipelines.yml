@@ -35,14 +35,14 @@ jobs:
       cat /proc/cpuinfo
       free -tm
       env
-      $CC -dumpmachine
+      gcc -dumpmachine
     displayName: 'System Info'
     condition: variables.isLinux
 
   - bash: |
       uname -a
       env
-      $CC -dumpmachine
+      gcc -dumpmachine
     displayName: 'System Info'
     condition: not(variables.isLinux)
     env: 
@@ -95,7 +95,7 @@ jobs:
       MSYSTEM: MINGW64
 
   - bash: |
-      sed -i "s/codesign/#codesign/" Makefile # We don't have a certificate so just not sign it?
+      sed  -i'' -e "s/codesign/#codesign/" Makefile # We don't have a certificate so just not sign it?
       make dist
       rm -rf dist/Rack dist/Rack-SDK dist/Rack.app # We only care about the packed files
     displayName: 'Creating Distribution Package'
