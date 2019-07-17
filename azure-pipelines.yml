@@ -18,6 +18,10 @@ jobs:
         imageName: 'macOS-10.14'
         isMac: true
         artifactMatrixID: 'Noxys_Rack_Mac'
+      windows:
+        imageName: 'vs2017-win2016'
+        isWindows: true
+        artifactMatrixID: 'Noxys_Rack_Windows'
 
   pool:
     vmImage: $(imageName)
@@ -27,32 +31,33 @@ jobs:
     submodules: recursive
 
   - bash: |
-      echo `uname -a`
-      echo `cat /proc/cpuinfo`
-      echo `free -tm`
+      uname -a
+      cat /proc/cpuinfo
+      free -tm
     displayName: 'System Info'
     condition: variables.isLinux
 
   - bash: |
       sudo apt install git gdb curl cmake libx11-dev libglu1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev zlib1g-dev libasound2-dev libgtk2.0-dev libjack-jackd2-dev jq
-    displayName: 'Installing prerequisites'
+    displayName: 'Installing Prerequisites > Linux'
     condition: variables.isLinux
 
   - bash: |
       brew install git wget cmake autoconf automake libtool jq python
-    displayName: 'Installing prerequisites'
+    displayName: 'Installing Prerequisites > Mac'
     condition: variables.isMac
+
+  - bash: |
+      choco install -y msys2 mingw
+      pacman -Syu
+      pacman -Su git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python
+    displayName: 'Installing Prerequisites > Windows'
+    condition: variables.isWindows
 
   - bash: |
       export SYSTEM=`uname -s` # Tell openssl what system we are building on
       make dep
     displayName: 'Building Dependencies'
-    condition: variables.isLinux
-
-  - bash: |
-      make dep
-    displayName: 'Building Dependencies'
-    condition: not(variables.isLinux)
 
   - bash: |
       sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
