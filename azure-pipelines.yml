@@ -40,3 +40,23 @@ jobs:
   - bash: |
       make
     displayName: 'Building Rack'
+
+  - bash: |
+      cd plugins
+      git clone https://github.com/VCVRack/Fundamental.git
+      cd Fundamental
+      git submodule update --init --recursive
+      make dep
+      make
+      cd ../..
+    displayName: 'Building Fundamental Plugins'
+
+  - bash: |
+      make dist
+    displayName: 'Creating Distribution Package'
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: $(artifactMatrixID)
+      targetPath: 'dist/'
+    displayName: Publish Artifact
