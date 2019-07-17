@@ -1,0 +1,31 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- combined-patches
+
+jobs:
+- job: Build
+  strategy:
+    matrix:
+      windows10:
+        imageName: 'vs2017-win2016'
+        isWindows: true
+        artifactMatrixID: 'NOXYS_RACK_ZIP_WINDOWS'  
+
+  pool:
+    vmImage: $(imageName)
+
+  steps:
+  - checkout: self
+    submodules: recursive
+
+  - bash: |
+      make dep
+    displayName: 'Building Dependencies'
+
+  - bash: |
+      make
+    displayName: 'Building Rack'
