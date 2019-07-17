@@ -23,8 +23,17 @@ jobs:
     submodules: recursive
 
   - bash: |
+      uname -a
+    displayName: 'System info'
+
+  - bash: |
       sudo apt install git gdb curl cmake libx11-dev libglu1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev zlib1g-dev libasound2-dev libgtk2.0-dev libjack-jackd2-dev jq
     displayName: 'Installing prerequisites'
+    condition: variables.isLinux
+
+  - script: |
+      SYSTEM=`uname -s` ./config
+    displayName: 'Fix openssl build'
     condition: variables.isLinux
 
   - bash: |
