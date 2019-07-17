@@ -93,12 +93,12 @@ jobs:
   - script: |
       C:\msys64\usr\bin\bash.exe -l -c "make"
     displayName: 'Building Rack'
-    condition: not(variables.isWindows)
+    condition: variables.isWindows
 
   - bash: |
       make
     displayName: 'Building Rack'
-    condition: variables.isLinux
+    condition: not(variables.isWindows)
 
   - script: |
       sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
