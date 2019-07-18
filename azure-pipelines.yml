@@ -65,31 +65,31 @@ jobs:
       #choco install wget make unzip zip msys2-installer -y
       choco install msys2-installer -y
       C:\msys64\usr\bin\bash.exe -l -c "pacman -Syu --ask=20"
-    displayName: 'Installing Prerequisites > Windows > 1'
+    displayName: 'Installing Prerequisites > Windows > Msys2 + pacman update'
     condition: variables.isWindows
 
   - script: |
       C:\msys64\usr\bin\bash.exe -l -c "pacman -Syu --ask=20"
-    displayName: 'Installing Prerequisites > Windows > 2'
+    displayName: 'Installing Prerequisites > Windows > pacman update'
     condition: variables.isWindows
 
   - script: |
       C:\msys64\usr\bin\bash.exe -l -c "pacman -Su --noconfirm git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python"
-    displayName: 'Installing Prerequisites > Windows > 3'
+    displayName: 'Installing Prerequisites > Windows > pacman install dependencies'
     condition: variables.isWindows
 
   - bash: |
       export SYSTEM=`uname -s` # Tell openssl what system we are building on
       make dep
-    displayName: 'Building Dependencies'
+    displayName: 'Building Dependencies > Linux + Mac'
     condition: not(variables.isWindows)
 
   - script: |
-      set "MSYSTEM=MINGW64"
-      C:\msys64\usr\bin\bash.exe -l -c "env"
       C:\msys64\usr\bin\bash.exe -l -c "export SYSTEM=`uname -s` && cd $BUILD_SOURCESDIRECTORY && make dep"
-    displayName: 'Building Dependencies'
+    displayName: 'Building Dependencies > Windows'
     condition: variables.isWindows
+    env:
+      MSYSTEM: MINGW64
 
   - bash: |
       mv Makefile Makefile.pre
@@ -104,12 +104,14 @@ jobs:
 
   - script: |
       C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make"
-    displayName: 'Building Rack'
+    displayName: 'Building Rack > Windows'
     condition: variables.isWindows
+    env:
+      MSYSTEM: MINGW64
 
   - bash: |
       make
-    displayName: 'Building Rack'
+    displayName: 'Building Rack > Linux + Mac'
     condition: not(variables.isWindows)
 
   - bash: |
@@ -123,14 +125,16 @@ jobs:
       cd ${BUILD_SOURCESDIRECTORY}/plugins/Fundamental
       make dep
       make
-    displayName: 'Building Fundamental Plugins'
+    displayName: 'Building Fundamental Plugins > Linux + Mac'
     condition: not(variables.isWindows)
 
   - script: |
       C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY/plugins/Fundamental && make dep"
       C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY/plugins/Fundamental && make"
-    displayName: 'Building Fundamental Plugins'
+    displayName: 'Building Fundamental Plugins > Windows'
     condition: variables.isWindows
+    env:
+      MSYSTEM: MINGW64
 
   - bash: |
       cd ${BUILD_SOURCESDIRECTORY}
@@ -145,14 +149,16 @@ jobs:
   - bash: |
       make dist
       rm -rf dist/Rack dist/Rack-SDK dist/Rack.app # We only care about the packed files
-    displayName: 'Creating Distribution Package'
+    displayName: 'Creating Distribution Package > Linux + Mac'
     condition: not(variables.isWindows)
 
   - script: |
       C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make dist"
       rmdir dist/Rack dist/Rack-SDK dist/Rack.app /s /q
-    displayName: 'Creating Distribution Package'
+    displayName: 'Creating Distribution Package > Windows'
     condition: variables.isWindows
+    env:
+      MSYSTEM: MINGW64
 
   - task: PublishPipelineArtifact@0
     inputs:
