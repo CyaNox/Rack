@@ -85,7 +85,7 @@ jobs:
     condition: not(variables.isWindows)
 
   - script: |
-      C:\msys64\usr\bin\bash.exe -l -c "make dep"
+      C:\msys64\usr\bin\bash.exe -l -c "cd ${Build.SourcesDirectory} && make dep"
     displayName: 'Building Dependencies'
     condition: variables.isWindows
 
@@ -101,7 +101,7 @@ jobs:
     condition: not(variables.isMac)
 
   - script: |
-      C:\msys64\usr\bin\bash.exe -l -c "make"
+      C:\msys64\usr\bin\bash.exe -l -c "cd ${Build.SourcesDirectory} && make"
     displayName: 'Building Rack'
     condition: variables.isWindows
 
@@ -110,21 +110,25 @@ jobs:
     displayName: 'Building Rack'
     condition: not(variables.isWindows)
 
-  - script: |
-      sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
-      c:\tools\msys64\msys2_shell.cmd -mingw64 make
-    displayName: 'Building Rack'
-    condition: variables.isWindows
-
   - bash: |
-      cd plugins
+      cd ${Build.SourcesDirectory}/plugins
       git clone https://github.com/VCVRack/Fundamental.git
       cd Fundamental
       git submodule update --init --recursive
+    displayName: 'Cloning Fundamental Plugins'
+
+  - bash: |
+      cd ${Build.SourcesDirectory}/plugins/Fundamental
       make dep
       make
-      cd ../..
     displayName: 'Building Fundamental Plugins'
+    condition: not(variables.isWindows)
+
+  - script: |
+      C:\msys64\usr\bin\bash.exe -l -c "cd ${Build.SourcesDirectory}/plugins/Fundamental && make dep"
+      C:\msys64\usr\bin\bash.exe -l -c "cd ${Build.SourcesDirectory}/plugins/Fundamental && make"
+    displayName: 'Building Fundamental Plugins'
+    condition: variables.isWindows
 
   - bash: |
       mv Makefile Makefile.pre
@@ -133,9 +137,19 @@ jobs:
       mv plugins/Fundamental/Makefile plugins/Fundamental/Makefile.pre
       sed -e 's/codesign/#codesign/g' plugins/Fundamental/Makefile.pre > plugins/Fundamental/Makefile
       rm plugins/Fundamental/Makefile.pre
+    displayName: 'Prepare Distribution Package'
+
+  - bash: |
       make dist
       rm -rf dist/Rack dist/Rack-SDK dist/Rack.app # We only care about the packed files
     displayName: 'Creating Distribution Package'
+    condition: not(variables.isWindows)
+
+  - script: |
+      C:\msys64\usr\bin\bash.exe -l -c "cd ${Build.SourcesDirectory} && make dist"
+      rmdir dist/Rack dist/Rack-SDK dist/Rack.app /s /q
+    displayName: 'Creating Distribution Package'
+    condition: variables.isWindows
 
   - task: PublishPipelineArtifact@0
     inputs:
