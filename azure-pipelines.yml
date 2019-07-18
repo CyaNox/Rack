@@ -85,8 +85,9 @@ jobs:
     condition: not(variables.isWindows)
 
   - script: |
+      set "MSYSTEM=MINGW64"
       C:\msys64\usr\bin\bash.exe -l -c "env"
-      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make dep"
+      C:\msys64\usr\bin\bash.exe -l -c "export SYSTEM=`uname -s` && cd $BUILD_SOURCESDIRECTORY && make dep"
     displayName: 'Building Dependencies'
     condition: variables.isWindows
 
