@@ -85,7 +85,8 @@ jobs:
     condition: not(variables.isWindows)
 
   - script: |
-      C:\msys64\usr\bin\bash.exe -l -c "cd %BUILD_SOURCESDIRECTORY% && make dep"
+      C:\msys64\usr\bin\bash.exe -l -c "env"
+      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make dep"
     displayName: 'Building Dependencies'
     condition: variables.isWindows
 
@@ -101,7 +102,7 @@ jobs:
     condition: not(variables.isMac)
 
   - script: |
-      C:\msys64\usr\bin\bash.exe -l -c "cd %BUILD_SOURCESDIRECTORY% && make"
+      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make"
     displayName: 'Building Rack'
     condition: variables.isWindows
 
@@ -125,8 +126,8 @@ jobs:
     condition: not(variables.isWindows)
 
   - script: |
-      C:\msys64\usr\bin\bash.exe -l -c "cd %BUILD_SOURCESDIRECTORY%/plugins/Fundamental && make dep"
-      C:\msys64\usr\bin\bash.exe -l -c "cd %BUILD_SOURCESDIRECTORY%/plugins/Fundamental && make"
+      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY/plugins/Fundamental && make dep"
+      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY/plugins/Fundamental && make"
     displayName: 'Building Fundamental Plugins'
     condition: variables.isWindows
 
@@ -147,7 +148,7 @@ jobs:
     condition: not(variables.isWindows)
 
   - script: |
-      C:\msys64\usr\bin\bash.exe -l -c "cd %BUILD_SOURCESDIRECTORY% && make dist"
+      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make dist"
       rmdir dist/Rack dist/Rack-SDK dist/Rack.app /s /q
     displayName: 'Creating Distribution Package'
     condition: variables.isWindows
