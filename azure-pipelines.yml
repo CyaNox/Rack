@@ -62,10 +62,20 @@ jobs:
     condition: variables.isMac
 
   - script: |
-      choco install wget make unzip zip msys2-installer -y
+      #choco install wget make unzip zip msys2-installer -y
+      choco install msys2-installer -y
       C:\msys64\usr\bin\bash.exe -l -c "pacman -Syu --ask=20"
+    displayName: 'Installing Prerequisites > Windows > 1'
+    condition: variables.isWindows
+
+  - script: |
+      C:\msys64\usr\bin\bash.exe -l -c "pacman -Syu --ask=20"
+    displayName: 'Installing Prerequisites > Windows > 2'
+    condition: variables.isWindows
+
+  - script: |
       C:\msys64\usr\bin\bash.exe -l -c "pacman -Su git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python"
-    displayName: 'Installing Prerequisites > Windows'
+    displayName: 'Installing Prerequisites > Windows > 3'
     condition: variables.isWindows
 
   - bash: |
