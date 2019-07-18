@@ -36,19 +36,19 @@ jobs:
       free -tm
       env
       gcc -dumpmachine
-    displayName: 'System Info'
+    displayName: 'System Info > Linux'
     condition: variables.isLinux
 
   - bash: |
       uname -a
       env
       gcc -dumpmachine
-    displayName: 'System Info'
+    displayName: 'System Info > Mac + Windows'
     condition: not(variables.isLinux)
 
   - script: |
       set
-    displayName: 'System Info'
+    displayName: 'System Info > Windows'
     condition: variables.isWindows
 
   - bash: |
@@ -74,7 +74,7 @@ jobs:
     condition: variables.isWindows
 
   - script: |
-      C:\msys64\usr\bin\bash.exe -l -c "pacman -Su --noconfirm git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python"
+      C:\msys64\usr\bin\bash.exe -l -c "pacman -Su --noconfirm git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python mingw-w64-x86_64-nsis"
     displayName: 'Installing Prerequisites > Windows > pacman install dependencies'
     condition: variables.isWindows
 
@@ -94,12 +94,12 @@ jobs:
   - bash: |
       mv Makefile Makefile.pre
       sed -e 's/\.dev\./\.noxys\./g' Makefile.pre > Makefile # Make it clear this is not an official release
-    displayName: 'Pre Building Rack'
+    displayName: 'Pre Building Rack > Mac'
     condition: variables.isMac
 
   - bash: |
       sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
-    displayName: 'Pre Building Rack'
+    displayName: 'Pre Building Rack > Linux + Windows'
     condition: not(variables.isMac)
 
   - script: |
