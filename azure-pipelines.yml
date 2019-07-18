@@ -154,7 +154,7 @@ jobs:
 
   - script: |
       C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make dist"
-      rmdir dist/Rack dist/Rack-SDK dist/Rack.app /s /q
+      rmdir dist\Rack dist\Rack-SDK dist\Rack.app /s /q
     displayName: 'Creating Distribution Package > Windows'
     condition: variables.isWindows
     env:
