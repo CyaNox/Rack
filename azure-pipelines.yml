@@ -1,0 +1,221 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- combined-patches
+
+jobs:
+- job: Build
+  strategy:
+    matrix:
+      linux:
+        imageName: 'ubuntu-16.04'
+        isLinux: true
+        artifactMatrixID: 'Noxys_Rack_Linux'
+      mac:
+        imageName: 'macOS-10.14'
+        isMac: true
+        artifactMatrixID: 'Noxys_Rack_Mac'
+      windows:
+        imageName: 'windows-2019'
+        isWindows: true
+        artifactMatrixID: 'Noxys_Rack_Windows'
+
+  pool:
+    vmImage: $(imageName)
+
+  steps:
+  - checkout: self
+    submodules: recursive
+
+  - bash: |
+      uname -a
+      cat /proc/cpuinfo
+      free -tm
+      env
+      gcc -dumpmachine
+    displayName: 'System Info > Linux'
+    condition: variables.isLinux
+
+  - bash: |
+      uname -a
+      env
+      gcc -dumpmachine
+    displayName: 'System Info > Mac + Windows'
+    condition: not(variables.isLinux)
+
+  - script: |
+      set
+    displayName: 'System Info > Windows'
+    condition: variables.isWindows
+
+  - bash: |
+      sudo apt install git gdb curl cmake libx11-dev libglu1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev zlib1g-dev libasound2-dev libgtk2.0-dev libjack-jackd2-dev jq
+    displayName: 'Installing Prerequisites > Linux'
+    condition: variables.isLinux
+
+  - bash: |
+      brew install git wget cmake autoconf automake libtool jq python
+    displayName: 'Installing Prerequisites > Mac'
+    condition: variables.isMac
+
+  - script: |
+      #choco install wget make unzip zip msys2-installer -y
+      choco install msys2-installer -y
+      C:\msys64\usr\bin\bash.exe -l -c "pacman -Syu --ask=20"
+    displayName: 'Installing Prerequisites > Windows > Msys2 + pacman update'
+    condition: variables.isWindows
+
+  - script: |
+      C:\msys64\usr\bin\bash.exe -l -c "pacman -Syu --ask=20"
+    displayName: 'Installing Prerequisites > Windows > pacman update'
+    condition: variables.isWindows
+
+  - script: |
+      C:\msys64\usr\bin\bash.exe -l -c "pacman -Su --noconfirm git wget make tar unzip zip mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake autoconf automake mingw-w64-x86_64-libtool mingw-w64-x86_64-jq python mingw-w64-x86_64-nsis"
+    displayName: 'Installing Prerequisites > Windows > pacman install dependencies'
+    condition: variables.isWindows
+
+  - bash: |
+      export SYSTEM=`uname -s` # Tell openssl what system we are building on
+      make dep
+    displayName: 'Building Dependencies > Linux + Mac'
+    condition: not(variables.isWindows)
+
+  - script: |
+      C:\msys64\usr\bin\bash.exe -l -c "export SYSTEM=`uname -s` && cd $BUILD_SOURCESDIRECTORY && make dep"
+    displayName: 'Building Dependencies > Windows'
+    condition: variables.isWindows
+    env:
+      MSYSTEM: MINGW64
+
+  - bash: |
+      mv Makefile Makefile.pre
+      sed -e 's/\.dev\./\.noxys\./g' Makefile.pre > Makefile # Make it clear this is not an official release
+    displayName: 'Pre Building Rack > Mac'
+    condition: variables.isMac
+
+  - bash: |
+      sed -i "s/\.dev\./\.noxys\./" Makefile # Make it clear this is not an official release
+    displayName: 'Pre Building Rack > Linux + Windows'
+    condition: not(variables.isMac)
+
+  - script: |
+      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make"
+    displayName: 'Building Rack > Windows'
+    condition: variables.isWindows
+    env:
+      MSYSTEM: MINGW64
+
+  - bash: |
+      make
+    displayName: 'Building Rack > Linux + Mac'
+    condition: not(variables.isWindows)
+
+  - bash: |
+      cd ${BUILD_SOURCESDIRECTORY}/plugins
+      git clone https://github.com/VCVRack/Fundamental.git
+      cd Fundamental
+      git submodule update --init --recursive
+    displayName: 'Cloning Fundamental Plugins'
+
+  - bash: |
+      cd ${BUILD_SOURCESDIRECTORY}/plugins/Fundamental
+      make dep
+      make
+    displayName: 'Building Fundamental Plugins > Linux + Mac'
+    condition: not(variables.isWindows)
+
+  - script: |
+      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY/plugins/Fundamental && make dep"
+      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY/plugins/Fundamental && make"
+    displayName: 'Building Fundamental Plugins > Windows'
+    condition: variables.isWindows
+    env:
+      MSYSTEM: MINGW64
+
+  - bash: |
+      cd ${BUILD_SOURCESDIRECTORY}
+      mv Makefile Makefile.pre
+      sed -e 's/codesign/#codesign/g' Makefile.pre > Makefile
+      rm -f Makefile.pre
+      mv plugins/Fundamental/Makefile plugins/Fundamental/Makefile.pre
+      sed -e 's/codesign/#codesign/g' plugins/Fundamental/Makefile.pre > plugins/Fundamental/Makefile
+      rm -f plugins/Fundamental/Makefile.pre
+    displayName: 'Prepare Distribution Package'
+
+  - bash: |
+      make dist
+    displayName: 'Creating Distribution Package > Linux + Mac'
+    condition: not(variables.isWindows)
+
+  - script: |
+      C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make dist"
+    displayName: 'Creating Distribution Package > Windows'
+    condition: variables.isWindows
+    env:
+      MSYSTEM: MINGW64
+
+  - bash: |
+      rm -rf dist/Rack dist/Rack-SDK dist/Rack.app # We only care about the packed files
+    displayName: 'Creating Distribution Package > Cleanup'
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: $(artifactMatrixID)
+      targetPath: 'dist/'
+    displayName: Publish Artifact
+
+- job: UpdateGithubRelease
+  dependsOn: Build
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/combined-patches'), eq(variables['Build.SourceBranch'], 'refs/heads/testing-azure'), eq(variables['Build.SourceBranch'], 'refs/pull/1/merge')))
+
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+      artifactName: 'Noxys_Rack_Linux'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+  - task: DownloadPipelineArtifact@0
+    inputs:
+      artifactName: 'Noxys_Rack_Mac'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+  - task: DownloadPipelineArtifact@0
+    inputs:
+      artifactName: 'Noxys_Rack_Windows'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+  - bash: |
+     ls -l $(Build.ArtifactStagingDirectory)
+     export EXTEND_TAG=`date "+%Y%m%d"`
+     for file in $(Build.ArtifactStagingDirectory)/*.zip; do mv "$file" "${file/.zip/-${EXTEND_TAG}.zip}"; done
+     for file in $(Build.ArtifactStagingDirectory)/*.exe; do mv "$file" "${file/.exe/-${EXTEND_TAG}.exe}"; done
+     ls -l $(Build.ArtifactStagingDirectory)
+    displayName: Tag asset names with Date
+
+  - bash: |
+      cd ${BUILD_SOURCESDIRECTORY}
+      echo "= WARNING =" > $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "This is an experimental release of Noxys VCV Rack fork. Use at your own risk." >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "== Recent changes ==" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      git log --pretty=oneline | head -10 | cut -d " " -f 2- >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+    displayName: Release notes
+
+  - task: GitHubRelease@0
+    displayName: "Update Github Release"
+    inputs:
+      gitHubConnection: noxys-rackupdater
+      repositoryName: CyaNox/Rack
+      action: edit
+      tagSource: manual
+      tag: Builds
+      target: '$(Build.SourceVersion)'
+      addChangeLog: false
+      releaseNotesFile: $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      assets: $(Build.ArtifactStagingDirectory)/*
