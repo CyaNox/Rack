@@ -148,20 +148,74 @@ jobs:
 
   - bash: |
       make dist
-      rm -rf dist/Rack dist/Rack-SDK dist/Rack.app # We only care about the packed files
     displayName: 'Creating Distribution Package > Linux + Mac'
     condition: not(variables.isWindows)
 
   - script: |
       C:\msys64\usr\bin\bash.exe -l -c "cd $BUILD_SOURCESDIRECTORY && make dist"
-      rmdir dist\Rack dist\Rack-SDK dist\Rack.app /s /q
     displayName: 'Creating Distribution Package > Windows'
     condition: variables.isWindows
     env:
       MSYSTEM: MINGW64
+
+  - bash: |
+      rm -rf dist/Rack dist/Rack-SDK dist/Rack.app # We only care about the packed files
+    displayName: 'Creating Distribution Package > Cleanup'
 
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: $(artifactMatrixID)
       targetPath: 'dist/'
     displayName: Publish Artifact
+
+- job: UpdateGithubRelease
+  dependsOn: Build
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/combined-patches'), eq(variables['Build.SourceBranch'], 'refs/heads/testing-azure')))
+
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+      artifactName: 'Noxys_Rack_Linux'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+  - task: DownloadPipelineArtifact@0
+    inputs:
+      artifactName: 'Noxys_Rack_Mac'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+  - task: DownloadPipelineArtifact@0
+    inputs:
+      artifactName: 'Noxys_Rack_Windows'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+  - bash: |
+     ls -l $(Build.ArtifactStagingDirectory)
+     export EXTEND_TAG=`date "+%Y%m%d"`
+     for file in $(Build.ArtifactStagingDirectory)/*.zip; do mv "$file" "${file/.zip/-${EXTEND_TAG}.zip}"; done
+     for file in $(Build.ArtifactStagingDirectory)/*.exe; do mv "$file" "${file/.exe/-${EXTEND_TAG}.exe}"; done
+     ls -l $(Build.ArtifactStagingDirectory)
+    displayName: Tag asset names with Date
+
+  - bash: |
+      cd ${BUILD_SOURCESDIRECTORY}
+      echo "= WARNING =" > $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "This is an experimental release of Noxys VCV Rack fork. Use at your own risk." >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "== Recent changes ==" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      echo "" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      git log --pretty=oneline >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+    displayName: Release notes
+
+  - task: GitHubRelease@0
+    displayName: "Update Github Release"
+    inputs:
+      gitHubConnection: noxys-rackupdater
+      repositoryName: CyaNox/Rack
+      action: edit
+      tagSource: manual
+      tag: Builds
+      target: '$(Build.SourceVersion)'
+      addChangeLog: false
+      releaseNotesFile: $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      assets: $(Build.ArtifactStagingDirectory)/*
