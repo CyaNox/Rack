@@ -170,7 +170,7 @@ jobs:
 
 - job: UpdateGithubRelease
   dependsOn: Build
-  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/combined-patches'), eq(variables['Build.SourceBranch'], 'refs/heads/testing-azure')))
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/combined-patches'), eq(variables['Build.SourceBranch'], 'refs/heads/testing-azure'), eq(variables['Build.SourceBranch'], 'refs/pull/1/merge')))
 
   steps:
   - task: DownloadPipelineArtifact@0
@@ -204,7 +204,7 @@ jobs:
       echo "" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
       echo "== Recent changes ==" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
       echo "" >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
-      git log --pretty=oneline >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
+      git log --pretty=oneline | head -10 | cut -d " " -f 2- >> $(Build.ArtifactStagingDirectory)/ReleaseNotes.md
     displayName: Release notes
 
   - task: GitHubRelease@0
