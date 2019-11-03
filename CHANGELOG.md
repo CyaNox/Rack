@@ -2,11 +2,40 @@
 
 In this document, Mod is Ctrl on Windows/Linux and Cmd on Mac.
 
-### 1.1.4 (in development)
-- Fix parameter smoothing of MIDI-Map.
+### 1.1.6 (in development)
+- Add ability for plugins to use LuaJIT on Mac.
+- Fix normal random number generator possibly returning -infinity.
+- Core
+	- MIDI-Map: Don't move param until the first MIDI CC command is sent.
 - API
-	- Add dsp::BiquadFilter.
-	- Add dsp/approx.hpp with approximate math functions.
+	- Remove support for namespaced `rack::APP`, `rack::DEBUG`, etc macros. Use namespace-less `APP`, `DEBUG`, etc instead.
+	- Add `dsp::IIRFilter`.
+
+### 1.1.5 (2019-09-29)
+- Swap order of tags and brands in Module Browser.
+- Add View > Frame rate menu bar item.
+- Hide menu and scrollbars when fullscreen.
+- Add key command (F3) for engine CPU meter.
+- Add numpad key commands.
+- Automatically unzip update on Mac.
+- Stop worker threads when engine is paused to save CPU.
+- Core
+	- Disable smoothing for MIDI CC buttons in MIDI-Map.
+	- Fix sustain pedal release bug when using polyphonic mode in MIDI-CV.
+- API
+	- Add libsamplerate library.
+
+### 1.1.4 (2019-08-22)
+- Fix parameter smoothing of MIDI-Map.
+- Sort modules within plugin in the Module Browser according to plugin rather than alphabetically.
+- Fix bug where knobs sometimes jump while dragging.
+- Reimplement CPU meter to measure thread runtime, not real time.
+- Fix crashes when deleting/duplicating modules while dragging modules/cables in certain cases.
+- API
+	- Add `dsp::BiquadFilter`.
+	- Add `dsp/approx.hpp` with approximate math functions.
+	- Add `simd::tan()`, `atan()`, and `atan2()`.
+	- Add `string::toBase64()` and `fromBase64()`.
 
 ### 1.1.3 (2019-07-23)
 - Include root certificate bundle for libcurl on all OS's.

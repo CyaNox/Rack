@@ -17,11 +17,13 @@ namespace rack {
 namespace engine {
 
 
-static void disableDenormals() {
+static void initMXCSR() {
 	// Set CPU to flush-to-zero (FTZ) and denormals-are-zero (DAZ) mode
 	// https://software.intel.com/en-us/node/682949
 	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
 	_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	// Reset other flags
+	_MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
 }
 
 
@@ -229,11 +231,21 @@ static void Engine_stepModules(Engine* that, int threadId) {
 
 	// int threadCount = internal->threadCount;
 	int modulesLen = internal->modules.size();
-	float sampleTime = internal->sampleTime;
 
-	Module::ProcessArgs processCtx;
-	processCtx.sampleRate = internal->sampleRate;
-	processCtx.sampleTime = internal->sampleTime;
+	Module::ProcessArgs processArgs;
+	processArgs.sampleRate = internal->sampleRate;
+	processArgs.sampleTime = internal->sampleTime;
+
+	// Set up CPU meter
+	// Prime number to avoid synchronizing with power-of-2 buffers
+	const int timerDivider = 7;
+	bool timerEnabled = settings::cpuMeter && (internal->frame % timerDivider) == 0;
+	double timerOverhead = 0.f;
+	if (timerEnabled) {
+		double startTime = system::getThreadTime();
+		double stopTime = system::getThreadTime();
+		timerOverhead = stopTime - startTime;
+	}
 
 	// Step each module
 	// for (int i = threadId; i < modulesLen; i += threadCount) {
@@ -246,28 +258,27 @@ static void Engine_stepModules(Engine* that, int threadId) {
 		Module* module = internal->modules[i];
 		if (!module->bypass) {
 			// Step module
-			if (settings::cpuMeter) {
+			if (timerEnabled) {
 				double startTime = system::getThreadTime();
-
-				module->process(processCtx);
-
+				module->process(processArgs);
 				double stopTime = system::getThreadTime();
-				float cpuTime = stopTime - startTime;
+
+				float cpuTime = std::fmax(0.f, stopTime - startTime - timerOverhead);
 				// Smooth CPU time
 				const float cpuTau = 2.f /* seconds */;
-				module->cpuTime += (cpuTime - module->cpuTime) * sampleTime / cpuTau;
+				module->cpuTime += (cpuTime - module->cpuTime) * timerDivider * processArgs.sampleTime / cpuTau;
 			}
 			else {
-				module->process(processCtx);
+				module->process(processArgs);
 			}
 		}
 
 		// Iterate ports to step plug lights
 		for (Input& input : module->inputs) {
-			input.process(sampleTime);
+			input.process(processArgs.sampleTime);
 		}
 		for (Output& output : module->outputs) {
-			output.process(sampleTime);
+			output.process(processArgs.sampleTime);
 		}
 	}
 }
@@ -396,7 +407,7 @@ static void Engine_run(Engine* that) {
 	// Set up thread
 	system::setThreadName("Engine");
 	// system::setThreadRealTime();
-	disableDenormals();
+	initMXCSR();
 
 	internal->frame = 0;
 	// Every time the that waits and locks a mutex, it steps this many frames
@@ -418,12 +429,12 @@ static void Engine_run(Engine* that) {
 			aheadTime = 0.0;
 		}
 
-		// Launch workers
-		if (internal->threadCount != settings::threadCount || internal->realTime != settings::realTime) {
-			Engine_relaunchWorkers(that, settings::threadCount, settings::realTime);
-		}
-
 		if (!internal->paused) {
+			// Launch workers
+			if (internal->threadCount != settings::threadCount || internal->realTime != settings::realTime) {
+				Engine_relaunchWorkers(that, settings::threadCount, settings::realTime);
+			}
+
 			std::lock_guard<std::recursive_mutex> lock(internal->mutex);
 
 			// Update expander pointers
@@ -435,6 +446,12 @@ static void Engine_run(Engine* that) {
 			// Step modules
 			for (int i = 0; i < mutexSteps; i++) {
 				Engine_step(that);
+			}
+		}
+		else {
+			// Stop workers while closed
+			if (internal->threadCount != 1) {
+				Engine_relaunchWorkers(that, 1, settings::realTime);
 			}
 		}
 
@@ -826,7 +843,7 @@ void Engine::updateParamHandle(ParamHandle* paramHandle, int moduleId, int param
 void EngineWorker::run() {
 	system::setThreadName("Engine worker");
 	system::setThreadRealTime(engine->internal->realTime);
-	disableDenormals();
+	initMXCSR();
 
 	while (1) {
 		engine->internal->engineBarrier.wait();

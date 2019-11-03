@@ -13,6 +13,7 @@ namespace system {
 
 /** Returns a list of all entries (directories, files, symbols) in a directory. */
 std::list<std::string> getEntries(const std::string& path);
+std::list<std::string> getEntriesRecursive(const std::string &path, int depth);
 /** Returns whether the given path is a file. */
 bool isFile(const std::string& path);
 /** Returns whether the given path is a directory. */
@@ -47,6 +48,11 @@ The launched process will continue running if the current process is closed.
 */
 void runProcessDetached(const std::string& path);
 std::string getOperatingSystemInfo();
+/** Unzips a ZIP file to a folder.
+The folder must exist.
+Returns 0 if successful.
+*/
+int unzipToFolder(const std::string& zipPath, const std::string& dir);
 
 
 } // namespace system

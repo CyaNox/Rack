@@ -95,6 +95,9 @@ struct Window::Internal {
 	int lastWindowHeight = 0;
 
 	bool ignoreNextMouseDelta = false;
+	int frameSwapInterval = -1;
+	float monitorRefreshRate = 0.f;
+	float lastFrameRate = 0.f;
 };
 
 
@@ -130,7 +133,6 @@ static void cursorPosCallback(GLFWwindow* win, double xpos, double ypos) {
 		window->internal->ignoreNextMouseDelta = false;
 		mouseDelta = math::Vec();
 	}
-	DEBUG("(%f %f) (%f %f)", VEC_ARGS(mouseDelta), VEC_ARGS(mousePos));
 
 	int cursorMode = glfwGetInputMode(win, GLFW_CURSOR);
 	(void) cursorMode;
@@ -249,8 +251,9 @@ Window::Window() {
 	glfwSetInputMode(win, GLFW_LOCK_KEY_MODS, 1);
 
 	glfwMakeContextCurrent(win);
-	// Enable v-sync
-	glfwSwapInterval(settings::frameRateSync ? 1 : 0);
+	glfwSwapInterval(1);
+	const GLFWvidmode* monitorMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+	internal->monitorRefreshRate = monitorMode->refreshRate;
 
 	// Set window callbacks
 	glfwSetWindowSizeCallback(win, windowSizeCallback);
@@ -326,7 +329,10 @@ Window::~Window() {
 void Window::run() {
 	frame = 0;
 	while (!glfwWindowShouldClose(win)) {
-		frameTimeStart = glfwGetTime();
+		double frameTime = glfwGetTime();
+		internal->lastFrameRate = 1.f / float(frameTime - frameTimeStart);
+		// DEBUG("%.2f Hz", internal->lastFrameRate);
+		frameTimeStart = frameTime;
 
 		// Make event handlers and step() have a clean nanovg context
 		nvgReset(vg);
@@ -334,8 +340,14 @@ void Window::run() {
 
 		// Poll events
 		glfwPollEvents();
-		// In case glfwPollEvents() set another OpenGL context
+
+		// In case glfwPollEvents() sets another OpenGL context
 		glfwMakeContextCurrent(win);
+		if (settings::frameSwapInterval != internal->frameSwapInterval) {
+			internal->frameSwapInterval = settings::frameSwapInterval;
+			glfwSwapInterval(settings::frameSwapInterval);
+		}
+
 		// Call cursorPosCallback every frame, not just when the mouse moves
 		{
 			double xpos, ypos;
@@ -397,23 +409,10 @@ void Window::run() {
 			glClearColor(0.0, 0.0, 0.0, 1.0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 			nvgEndFrame(vg);
-
-			glfwSwapBuffers(win);
 		}
 
-		// Limit frame rate
-		double frameTimeEnd = glfwGetTime();
-		if (settings::frameRateLimit > 0.0) {
-			double frameDuration = frameTimeEnd - frameTimeStart;
-			double waitDuration = 1.0 / settings::frameRateLimit - frameDuration;
-			if (waitDuration > 0.0) {
-				std::this_thread::sleep_for(std::chrono::duration<double>(waitDuration));
-			}
-		}
+		glfwSwapBuffers(win);
 
-		// Compute actual frame rate
-		frameTimeEnd = glfwGetTime();
-		// DEBUG("%g fps", 1 / (endTime - startTime));
 		frame++;
 	}
 }
@@ -524,10 +523,19 @@ bool Window::isFullScreen() {
 }
 
 bool Window::isFrameOverdue() {
-	if (settings::frameRateLimit == 0.0)
+	if (settings::frameSwapInterval == 0)
 		return false;
 	double frameDuration = glfwGetTime() - frameTimeStart;
-	return frameDuration > 1.0 / settings::frameRateLimit;
+	double frameDeadline = settings::frameSwapInterval / internal->monitorRefreshRate;
+	return frameDuration > frameDeadline;
+}
+
+float Window::getMonitorRefreshRate() {
+	return internal->monitorRefreshRate;
+}
+
+float Window::getLastFrameRate() {
+	return internal->lastFrameRate;
 }
 
 std::shared_ptr<Font> Window::loadFont(const std::string& filename) {

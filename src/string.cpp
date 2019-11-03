@@ -4,6 +4,7 @@
 #include <cctype> // for tolower and toupper
 #include <algorithm> // for transform
 #include <libgen.h> // for dirname and basename
+#include <zlib.h>
 
 
 namespace rack {
@@ -151,6 +152,128 @@ float fuzzyScore(const std::string& s, const std::string& query) {
 		return 0.f;
 
 	return (float)(query.size() + 1) / (s.size() + 1);
+}
+
+
+std::string toBase64(const uint8_t* data, size_t dataLen) {
+	static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+	size_t numBlocks = (dataLen + 2) / 3;
+	size_t strLen = numBlocks * 4;
+	std::string str;
+	str.reserve(strLen);
+
+	for (size_t b = 0; b < numBlocks; b++) {
+		// Encode block
+		uint32_t block = 0;
+		int i;
+		for (i = 0; i < 3 && 3 * b + i < dataLen; i++) {
+			block |= uint32_t(data[3 * b + i]) << (8 * (2 - i));
+		}
+
+		// Decode block
+		str += alphabet[(block >> 18) & 0x3f];
+		str += alphabet[(block >> 12) & 0x3f];
+		str += (i > 1) ? alphabet[(block >> 6) & 0x3f] : '=';
+		str += (i > 2) ? alphabet[(block >> 0) & 0x3f] : '=';
+	}
+	return str;
+}
+
+
+std::string toBase64(const std::vector<uint8_t>& data) {
+	return toBase64(data.data(), data.size());
+}
+
+
+std::vector<uint8_t> fromBase64(const std::string& str) {
+	size_t strLen = str.size();
+	if (strLen % 4 != 0)
+		throw std::runtime_error("String length not a factor of 4");
+
+	size_t numBlocks = strLen / 4;
+	size_t len = numBlocks * 3;
+	if (strLen >= 4) {
+		if (str[strLen - 1] == '=')
+			len--;
+		if (str[strLen - 2] == '=')
+			len--;
+	}
+
+	std::vector<uint8_t> data(len);
+
+	for (size_t b = 0; b < numBlocks; b++) {
+		// Encode block
+		uint32_t block = 0;
+		size_t i;
+		for (i = 0; i < 4; i++) {
+			uint8_t c = str[4 * b + i];
+			uint8_t d = 0;
+
+			if ('A' <= c && c <= 'Z') {
+				d = c - 'A';
+			}
+			else if ('a' <= c && c <= 'z') {
+				d = c - 'a' + 26;
+			}
+			else if ('0' <= c && c <= '9') {
+				d = c - '0' + 52;
+			}
+			else if (c == '+') {
+				d = 62;
+			}
+			else if (c == '/') {
+				d = 63;
+			}
+			else if (c == '=') {
+				// Padding ends block encoding
+				break;
+			}
+			else {
+				// Since we assumed the string was a factor of 4 bytes, fail if an invalid character, such as whitespace, was found.
+				throw std::runtime_error("String contains non-base64 character");
+			}
+
+			block |= uint32_t(d) << (6 * (3 - i));
+		}
+
+		// Decode block
+		for (size_t k = 0; k < i - 1; k++) {
+			data[3 * b + k] = (block >> (8 * (2 - k))) & 0xff;
+		}
+	}
+
+	return data;
+}
+
+
+std::vector<uint8_t> compress(const uint8_t* data, size_t dataLen) {
+	std::vector<uint8_t> compressed;
+	uLongf outCap = ::compressBound(dataLen);
+	compressed.resize(outCap);
+	int err = ::compress2(compressed.data(), &outCap, data, dataLen, Z_BEST_COMPRESSION);
+	if (err)
+		throw std::runtime_error("Zlib error");
+	compressed.resize(outCap);
+	return compressed;
+}
+
+
+std::vector<uint8_t> compress(const std::vector<uint8_t>& data) {
+	return compress(data.data(), data.size());
+}
+
+
+void uncompress(const uint8_t* compressed, size_t compressedLen, uint8_t* data, size_t* dataLen) {
+	uLongf dataLenF = *dataLen;
+	int err = ::uncompress(data, &dataLenF, compressed, compressedLen);
+	(void) err;
+	*dataLen = dataLenF;
+}
+
+
+void uncompress(const std::vector<uint8_t>& compressed, uint8_t* data, size_t* dataLen) {
+	uncompress(compressed.data(), compressed.size(), data, dataLen);
 }
 
 
