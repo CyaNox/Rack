@@ -321,6 +321,18 @@ struct LockModulesItem : ui::MenuItem {
 	}
 };
 
+struct SearchInDescriptionsItem : ui::MenuItem {
+	void onAction(const event::Action &e) override {
+		settings::searchInDescriptions ^= true;
+	}
+};
+
+struct AlternateModuleBrowserBehaviorItem : ui::MenuItem {
+	void onAction(const event::Action &e) override {
+		settings::alternateModuleBrowserBehavior ^= true;
+	}
+};
+
 struct CursorLockItem : ui::MenuItem {
 	void onAction(const event::Action& e) override {
 		settings::allowCursorLock ^= true;
@@ -372,6 +384,16 @@ struct ViewButton : MenuButton {
 		lockModulesItem->text = "Lock modules";
 		lockModulesItem->rightText = CHECKMARK(settings::lockModules);
 		menu->addChild(lockModulesItem);
+
+		SearchInDescriptionsItem *searchInDescriptionsItem = new SearchInDescriptionsItem;
+		searchInDescriptionsItem->text = "Search in descriptions";
+		searchInDescriptionsItem->rightText = CHECKMARK(settings::searchInDescriptions);
+		menu->addChild(searchInDescriptionsItem);
+
+		AlternateModuleBrowserBehaviorItem* alternateModuleBrowserBehaviorItem = new AlternateModuleBrowserBehaviorItem;
+		alternateModuleBrowserBehaviorItem->text = "Alternate module browser behavior";
+		alternateModuleBrowserBehaviorItem->rightText = CHECKMARK(settings::alternateModuleBrowserBehavior);
+		menu->addChild(alternateModuleBrowserBehaviorItem);
 
 		CursorLockItem* cursorLockItem = new CursorLockItem;
 		cursorLockItem->text = "Lock cursor while dragging";

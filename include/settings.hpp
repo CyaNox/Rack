@@ -39,6 +39,8 @@ extern float autosavePeriod;
 extern bool skipLoadOnLaunch;
 extern std::string patchPath;
 extern std::vector<NVGcolor> cableColors;
+extern bool searchInDescriptions;
+extern bool alternateModuleBrowserBehavior;
 
 json_t* toJson();
 void fromJson(json_t* rootJ);

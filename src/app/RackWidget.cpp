@@ -156,6 +156,7 @@ void RackWidget::onButton(const event::Button& e) {
 		return;
 
 	if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_RIGHT) {
+		APP->scene->lastMousePos = e.pos;
 		APP->scene->moduleBrowser->show();
 		e.consume(this);
 	}

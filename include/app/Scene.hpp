@@ -20,6 +20,8 @@ struct Scene : widget::OpaqueWidget {
 
 	double lastAutosaveTime = 0.0;
 
+	math::Vec lastMousePos;
+
 	// Version checking
 	bool checkVersion = true;
 	bool checkedVersion = false;

@@ -8,6 +8,7 @@
 #include <ui/Label.hpp>
 #include <ui/TextField.hpp>
 #include <ui/MenuOverlay.hpp>
+#include <ui/MenuItem.hpp>
 #include <ui/List.hpp>
 #include <ui/MenuItem.hpp>
 #include <ui/Button.hpp>
@@ -23,6 +24,7 @@
 #include <history.hpp>
 #include <settings.hpp>
 #include <tag.hpp>
+#include <helpers.hpp>
 
 #include <set>
 #include <algorithm>
@@ -46,6 +48,10 @@ static float modelScore(plugin::Model* model, const std::string& search) {
 	s += model->name;
 	s += " ";
 	s += model->slug;
+	if (settings::searchInDescriptions){
+		s += " ";
+		s += model->description;
+	}
 	for (int tagId : model->tags) {
 		// Add all aliases of a tag
 		for (const std::string& alias : tag::tagAliases[tagId]) {
@@ -85,7 +91,12 @@ static ModuleWidget* chooseModel(plugin::Model* model) {
 	// Create module
 	ModuleWidget* moduleWidget = model->createModuleWidget();
 	assert(moduleWidget);
-	APP->scene->rack->addModuleAtMouse(moduleWidget);
+	if (settings::alternateModuleBrowserBehavior){
+		APP->scene->rack->setModulePosNearest(moduleWidget, APP->scene->lastMousePos.minus(moduleWidget->box.size.div(2)));
+		APP->scene->rack->addModule(moduleWidget);
+	}else{
+		APP->scene->rack->addModuleAtMouse(moduleWidget);
+	}
 
 	// Push ModuleAdd history action
 	history::ModuleAdd* h = new history::ModuleAdd;
@@ -93,8 +104,10 @@ static ModuleWidget* chooseModel(plugin::Model* model) {
 	h->setModule(moduleWidget);
 	APP->history->push(h);
 
-	// Hide Module Browser
-	APP->scene->moduleBrowser->hide();
+	if ((APP->window->getMods() & GLFW_MOD_SHIFT) != GLFW_MOD_SHIFT){
+		// Hide Module Browser
+		APP->scene->moduleBrowser->hide();
+	}
 
 	return moduleWidget;
 }
@@ -219,8 +232,12 @@ struct ModelBox : widget::OpaqueWidget {
 		if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT) {
 			ModuleWidget* mw = chooseModel(model);
 
-			// Pretend the moduleWidget was clicked so it can be dragged in the RackWidget
-			e.consume(mw);
+			if (settings::alternateModuleBrowserBehavior){
+				e.consume(this);
+			}else{
+				// Pretend the moduleWidget was clicked so it can be dragged in the RackWidget
+				e.consume(mw);
+			}
 		}
 	}
 
@@ -392,6 +409,25 @@ struct BrowserSidebar : widget::Widget {
 	}
 };
 
+struct SortMenuUsesItem : ui::MenuItem {
+	void onAction(const event::Action &e) override;
+};
+
+struct SortMenuAlphanumericItem : ui::MenuItem {
+	void onAction(const event::Action &e) override;
+};
+
+struct SortMenuSizeItem : ui::MenuItem {
+	void onAction(const event::Action &e) override;
+};
+
+struct SortMenuLastModifiedItem : ui::MenuItem {
+	void onAction(const event::Action &e) override;
+};
+
+struct SortButton : ui::MenuItem {
+	void onAction(const event::Action &e) override;
+};
 
 struct ModuleBrowser : widget::OpaqueWidget {
 	BrowserSidebar* sidebar;
@@ -399,7 +435,9 @@ struct ModuleBrowser : widget::OpaqueWidget {
 	ui::Label* modelLabel;
 	ui::MarginLayout* modelMargin;
 	ui::SequentialLayout* modelContainer;
+	SortButton* sortButton;
 
+	SortMethod sortMethod = LastModified_DESC;
 	std::string search;
 	std::string brand;
 	int tagId = -1;
@@ -416,6 +454,9 @@ struct ModuleBrowser : widget::OpaqueWidget {
 
 		modelScroll = new ui::ScrollWidget;
 		addChild(modelScroll);
+
+		sortButton = new SortButton;
+		addChild(sortButton);
 
 		modelMargin = new ui::MarginLayout;
 		modelMargin->margin = math::Vec(10, 10);
@@ -444,6 +485,8 @@ struct ModuleBrowser : widget::OpaqueWidget {
 
 		modelLabel->box.pos = sidebar->box.getTopRight().plus(math::Vec(5, 5));
 
+		sortButton->box.pos = box.getTopRight().minus(math::Vec(sortButton->box.size.x + 5, -5).plus(box.getTopLeft()));
+
 		modelScroll->box.pos = sidebar->box.getTopRight().plus(math::Vec(0, 30));
 		modelScroll->box.size = box.size.minus(modelScroll->box.pos);
 		modelMargin->box.size.x = modelScroll->box.size.x;
@@ -459,7 +502,9 @@ struct ModuleBrowser : widget::OpaqueWidget {
 
 	void refresh() {
 		// Reset scroll position
-		modelScroll->offset = math::Vec();
+		if (!settings::alternateModuleBrowserBehavior) {
+			modelScroll->offset = math::Vec();
+		}
 
 		// Filter ModelBoxes
 		for (Widget* w : modelContainer->children) {
@@ -469,14 +514,121 @@ struct ModuleBrowser : widget::OpaqueWidget {
 		}
 
 		// Sort ModelBoxes
-		modelContainer->children.sort([&](Widget * w1, Widget * w2) {
-			ModelBox* m1 = dynamic_cast<ModelBox*>(w1);
-			ModelBox* m2 = dynamic_cast<ModelBox*>(w2);
-			// Sort by (modifiedTimestamp descending, plugin brand)
-			auto t1 = std::make_tuple(-m1->model->plugin->modifiedTimestamp, m1->model->plugin->brand);
-			auto t2 = std::make_tuple(-m2->model->plugin->modifiedTimestamp, m2->model->plugin->brand);
-			return t1 < t2;
-		});
+		switch (sortMethod){
+			case Uses_ASC:
+			case Uses_DESC:
+				sortButton->text = "Sort by uses";
+			break;
+			case Alphabetic_ASC:
+			case Alphabetic_DESC:
+				sortButton->text = "Sort alphabetical";
+			break;
+			case Size_ASC:
+			case Size_DESC:
+				sortButton->text = "Sort by size";
+			break;
+			case LastModified_ASC:
+			case LastModified_DESC:
+				sortButton->text = "Sort by last modified";
+			break;
+		}
+		switch (sortMethod){
+			case Alphabetic_ASC:
+			case Uses_ASC:
+			case Size_ASC:
+			case LastModified_ASC:
+				sortButton->rightText = "⬇";
+			break;
+			case Alphabetic_DESC:
+			case Uses_DESC:
+			case Size_DESC:
+			case LastModified_DESC:
+				sortButton->rightText = "⬆";
+			break;
+		}
+
+		switch(sortMethod){
+			case Alphabetic_ASC:
+				modelContainer->children.sort([&](Widget * w1, Widget * w2) {
+					ModelBox* m1 = dynamic_cast<ModelBox*>(w1);
+					ModelBox* m2 = dynamic_cast<ModelBox*>(w2);
+					// Sort by (modifiedTimestamp descending, plugin brand, model name)
+					auto t1 = std::make_tuple(m1->model->name, m1->model->plugin->brand, -m1->model->plugin->modifiedTimestamp);
+					auto t2 = std::make_tuple(m2->model->name, m2->model->plugin->brand, -m2->model->plugin->modifiedTimestamp);
+					return t1 < t2;
+				});
+			break;
+			case Alphabetic_DESC:
+				modelContainer->children.sort([&](Widget * w1, Widget * w2) {
+					ModelBox* m1 = dynamic_cast<ModelBox*>(w1);
+					ModelBox* m2 = dynamic_cast<ModelBox*>(w2);
+					// Sort by (modifiedTimestamp descending, plugin brand, model name)
+					auto t1 = std::make_tuple(m1->model->name, m1->model->plugin->brand, -m1->model->plugin->modifiedTimestamp);
+					auto t2 = std::make_tuple(m2->model->name, m2->model->plugin->brand, -m2->model->plugin->modifiedTimestamp);
+					return t1 > t2;
+				});
+			break;
+			case Uses_ASC:
+				modelContainer->children.sort([&](Widget * w1, Widget * w2) {
+					ModelBox* m1 = dynamic_cast<ModelBox*>(w1);
+					ModelBox* m2 = dynamic_cast<ModelBox*>(w2);
+					// Sort by (modifiedTimestamp descending, plugin brand, model name)
+					auto t1 = std::make_tuple(m1->model->plugin->modifiedTimestamp, m1->model->plugin->brand, m1->model->name);
+					auto t2 = std::make_tuple(m2->model->plugin->modifiedTimestamp, m2->model->plugin->brand, m2->model->name);
+					return t1 < t2;
+				});
+			break;
+			case Uses_DESC:
+				modelContainer->children.sort([&](Widget * w1, Widget * w2) {
+					ModelBox* m1 = dynamic_cast<ModelBox*>(w1);
+					ModelBox* m2 = dynamic_cast<ModelBox*>(w2);
+					// Sort by (modifiedTimestamp descending, plugin brand, model name)
+					auto t1 = std::make_tuple(m1->model->plugin->modifiedTimestamp, m1->model->plugin->brand, m1->model->name);
+					auto t2 = std::make_tuple(m2->model->plugin->modifiedTimestamp, m2->model->plugin->brand, m2->model->name);
+					return t1 > t2;
+				});
+			break;
+			case Size_ASC:
+				modelContainer->children.sort([&](Widget * w1, Widget * w2) {
+					ModelBox* m1 = dynamic_cast<ModelBox*>(w1);
+					ModelBox* m2 = dynamic_cast<ModelBox*>(w2);
+					// Sort by (modifiedTimestamp descending, plugin brand, model name)
+					auto t1 = std::make_tuple(m1->box.size.x, m1->model->plugin->brand, m1->model->name, m1->model->plugin->modifiedTimestamp);
+					auto t2 = std::make_tuple(m2->box.size.x, m2->model->plugin->brand, m2->model->name, m2->model->plugin->modifiedTimestamp);
+					return t1 < t2;
+				});
+			break;
+			case Size_DESC:
+				modelContainer->children.sort([&](Widget * w1, Widget * w2) {
+					ModelBox* m1 = dynamic_cast<ModelBox*>(w1);
+					ModelBox* m2 = dynamic_cast<ModelBox*>(w2);
+					// Sort by (modifiedTimestamp descending, plugin brand, model name)
+					auto t1 = std::make_tuple(m1->box.size.x, m1->model->plugin->brand, m1->model->name, m1->model->plugin->modifiedTimestamp);
+					auto t2 = std::make_tuple(m2->box.size.x, m2->model->plugin->brand, m2->model->name, m2->model->plugin->modifiedTimestamp);
+					return t1 > t2;
+				});
+			break;
+			case LastModified_ASC:
+				modelContainer->children.sort([&](Widget * w1, Widget * w2) {
+					ModelBox* m1 = dynamic_cast<ModelBox*>(w1);
+					ModelBox* m2 = dynamic_cast<ModelBox*>(w2);
+					// Sort by (modifiedTimestamp descending, plugin brand, model name)
+					auto t1 = std::make_tuple(m1->model->plugin->modifiedTimestamp, m1->model->plugin->brand, m1->model->name);
+					auto t2 = std::make_tuple(m2->model->plugin->modifiedTimestamp, m2->model->plugin->brand, m2->model->name);
+					return t1 < t2;
+				});
+			break;
+			default:
+			case LastModified_DESC:
+				modelContainer->children.sort([&](Widget * w1, Widget * w2) {
+					ModelBox* m1 = dynamic_cast<ModelBox*>(w1);
+					ModelBox* m2 = dynamic_cast<ModelBox*>(w2);
+					auto t1 = std::make_tuple(m1->model->plugin->modifiedTimestamp, m1->model->plugin->brand, m1->model->name);
+					auto t2 = std::make_tuple(m2->model->plugin->modifiedTimestamp, m2->model->plugin->brand, m2->model->name);
+					return t1 > t2;
+				});
+			break;
+		}
 
 		if (search.empty()) {
 			// We've already sorted above
@@ -564,6 +716,73 @@ struct ModuleBrowser : widget::OpaqueWidget {
 
 // Implementations to resolve dependencies
 
+inline void SortMenuUsesItem::onAction(const event::Action& e) {
+	ModuleBrowser* browser = APP->scene->getFirstDescendantOfType<ModuleBrowser>();
+	if (browser->sortMethod == Uses_ASC){
+		browser->sortMethod = Uses_DESC;
+	}else{
+		browser->sortMethod = Uses_ASC;
+	}
+	browser->refresh();
+}
+
+inline void SortMenuAlphanumericItem::onAction(const event::Action& e) {
+	ModuleBrowser* browser = APP->scene->getFirstDescendantOfType<ModuleBrowser>();
+	if (browser->sortMethod == Alphabetic_ASC){
+		browser->sortMethod = Alphabetic_DESC;
+	}else{
+		browser->sortMethod = Alphabetic_ASC;
+	}
+	browser->refresh();
+}
+
+inline void SortMenuSizeItem::onAction(const event::Action& e) {
+	ModuleBrowser* browser = APP->scene->getFirstDescendantOfType<ModuleBrowser>();
+	if (browser->sortMethod == Size_ASC){
+		browser->sortMethod = Size_DESC;
+	}else{
+		browser->sortMethod = Size_ASC;
+	}
+	browser->refresh();
+}
+
+inline void SortMenuLastModifiedItem::onAction(const event::Action& e) {
+	ModuleBrowser* browser = APP->scene->getFirstDescendantOfType<ModuleBrowser>();
+	if (browser->sortMethod == LastModified_ASC){
+		browser->sortMethod = LastModified_DESC;
+	}else{
+		browser->sortMethod = LastModified_ASC;
+	}
+	browser->refresh();
+}
+
+inline void SortButton::onAction(const event::Action& e) {
+	ModuleBrowser* browser = APP->scene->getFirstDescendantOfType<ModuleBrowser>();
+
+	ui::Menu* sortMenu = createMenu();
+	sortMenu->box.pos = getAbsoluteOffset(math::Vec(0, box.size.y));
+	sortMenu->box.size.x = box.size.x;
+
+	// SortMenuUsesItem* sortMenuUsesItem = new SortMenuUsesItem;
+	// sortMenuUsesItem->text = "Sort uses";
+	// sortMenuUsesItem->rightText = browser->sortMethod == Uses_ASC ? "⬆" : "⬇";
+	// sortMenu->addChild(sortMenuUsesItem);
+
+	SortMenuAlphanumericItem* sortMenuAlphanumericItem = new SortMenuAlphanumericItem;
+	sortMenuAlphanumericItem->text = "Sort alphabetical";
+	sortMenuAlphanumericItem->rightText = browser->sortMethod == Alphabetic_ASC ? "⬆" : "⬇";
+	sortMenu->addChild(sortMenuAlphanumericItem);
+
+	SortMenuSizeItem* sortMenuSizeItem = new SortMenuSizeItem;
+	sortMenuSizeItem->text = "Sort by size";
+	sortMenuSizeItem->rightText = browser->sortMethod == Size_ASC ? "⬆" : "⬇";
+	sortMenu->addChild(sortMenuSizeItem);
+
+	SortMenuLastModifiedItem* sortMenuLastModifiedItem = new SortMenuLastModifiedItem;
+	sortMenuLastModifiedItem->text = "Sort by last modified";
+	sortMenuLastModifiedItem->rightText = browser->sortMethod == LastModified_ASC ? "⬆" : "⬇";
+	sortMenu->addChild(sortMenuLastModifiedItem);
+}
 
 inline void BrandItem::onAction(const event::Action& e) {
 	ModuleBrowser* browser = getAncestorOfType<ModuleBrowser>();

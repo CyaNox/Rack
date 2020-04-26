@@ -29,6 +29,8 @@ int threadCount = 1;
 bool paramTooltip = false;
 bool cpuMeter = false;
 bool lockModules = false;
+bool searchInDescriptions = true;
+bool alternateModuleBrowserBehavior = false;
 #if defined ARCH_MAC
 	// Most Mac GPUs can't handle rendering the screen every frame, so use ~30 Hz by default.
 	int frameSwapInterval = 2;
@@ -78,6 +80,10 @@ json_t* toJson() {
 	json_object_set_new(rootJ, "cpuMeter", json_boolean(cpuMeter));
 
 	json_object_set_new(rootJ, "lockModules", json_boolean(lockModules));
+
+	json_object_set_new(rootJ, "searchInDescriptions", json_boolean(searchInDescriptions));
+
+	json_object_set_new(rootJ, "alternateModuleBrowserBehavior", json_boolean(alternateModuleBrowserBehavior));
 
 	json_object_set_new(rootJ, "frameSwapInterval", json_integer(frameSwapInterval));
 
@@ -161,6 +167,14 @@ void fromJson(json_t* rootJ) {
 	json_t* lockModulesJ = json_object_get(rootJ, "lockModules");
 	if (lockModulesJ)
 		lockModules = json_boolean_value(lockModulesJ);
+
+	json_t *searchInDescriptionsJ = json_object_get(rootJ, "searchInDescriptions");
+	if (searchInDescriptionsJ)
+		searchInDescriptions = json_boolean_value(searchInDescriptionsJ);
+
+	json_t* alternateModuleBrowserBehaviorJ = json_object_get(rootJ, "alternateModuleBrowserBehavior");
+	if (alternateModuleBrowserBehaviorJ)
+		alternateModuleBrowserBehavior = json_boolean_value(alternateModuleBrowserBehaviorJ);
 
 	json_t* frameSwapIntervalJ = json_object_get(rootJ, "frameSwapInterval");
 	if (frameSwapIntervalJ)
